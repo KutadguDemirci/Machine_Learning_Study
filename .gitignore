@@ -1,0 +1,24 @@
+# Ignore virtual environment folders
+.venv/
+env/
+venv/
+
+# Ignore Python bytecode files
+__pycache__/
+*.py[cod]
+
+# Ignore Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# macOS system files
+.DS_Store
+
+# VSCode settings folder (optional)
+.vscode/
+
+# Ignore Docker files
+Dockerfile
+docker-compose.yml
+*.dockerfile
+.dockerignore
+docker-compose.debug.yml
