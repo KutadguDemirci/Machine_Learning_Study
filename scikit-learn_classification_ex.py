@@ -198,3 +198,13 @@ y_pred_custom = (y_proba >= threshold).astype(int)
 
 print(confusion_matrix(y_test, y_pred_custom))
 print(classification_report(y_test, y_pred_custom))
+
+sns.heatmap(confusion_matrix(y_test, y_pred_custom), annot=True, fmt='d', cmap='Blues')
+plt.title('Confusion Matrix')
+plt.xlabel('Predicted')
+plt.ylabel('Actual')
+plt.xticks(ticks=[0.5, 1.5], labels=['No Heart Disease', 'Heart Disease'])
+plt.yticks(ticks=[0.5, 1.5], labels=['No Heart Disease', 'Heart Disease'])
+plt.tight_layout()
+
+plt.show()
