@@ -54,11 +54,11 @@ class_names = train_data.classes
 
 # Turn the data into batches of data
 train_data_loader = DataLoader(dataset=train_data,
-                               batch_size=32,
+                               batch_size=64,
                                shuffle=True)
 
 test_data_loader = DataLoader(dataset= test_data,
-                              batch_size=32)
+                              batch_size=64)
 
 train_features_batch, train_labels_batch = next(iter(train_data_loader))
 # print(train_features_batch.shape, train_labels_batch.shape) 
@@ -245,12 +245,14 @@ class FashionMNISTCNN(nn.Module):
                       kernel_size=3,
                       stride=1,
                       padding=1),
+            nn.BatchNorm2d(hidden_units),
             nn.ReLU(),
             nn.Conv2d(in_channels=hidden_units,
                       out_channels=hidden_units,
                       kernel_size=3,
                       stride=1,
                       padding=1),
+            nn.BatchNorm2d(hidden_units),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2))
         
@@ -260,52 +262,54 @@ class FashionMNISTCNN(nn.Module):
                       kernel_size=3,
                       stride=1,
                       padding=1),
+            nn.BatchNorm2d(hidden_units),
             nn.ReLU(),
             nn.Conv2d(in_channels=hidden_units,
                       out_channels=hidden_units,
                       kernel_size=3,
                       stride=1,
                       padding=1),
+            nn.BatchNorm2d(hidden_units),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2))
         
+        self.conv_block3 = nn.Sequential(
+            nn.Conv2d(in_channels=hidden_units,
+                      out_channels=hidden_units,
+                      kernel_size=3,
+                      stride=1,
+                      padding=1),
+            nn.BatchNorm2d(hidden_units),
+            nn.ReLU(),
+            nn.Conv2d(in_channels=hidden_units,
+                      out_channels=hidden_units,
+                      kernel_size=3,
+                      stride=1,
+                      padding=1),
+            nn.BatchNorm2d(hidden_units),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2))        
+        
         self.classifier = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(in_features=hidden_units*7*7,
+            nn.Dropout(p=0.3),
+            nn.Linear(in_features=hidden_units*3*3,
                       out_features=output_shape)
         )
     def forward(self, x):
         x=self.conv_block1(x)
         x=self.conv_block2(x)
+        x=self.conv_block3(x)
         x=self.classifier(x)
         return x
     
 torch.manual_seed(42)
 model2 = FashionMNISTCNN(input_shape=1,
-                         hidden_units=10,
+                         hidden_units=128,
                          output_shape=len(class_names)).to(device)
 
 
-# Find the inout shape for the classifier
-# images = torch.rand(32, 3, 64, 64)
-# test_image = images[0]
-
-# print(images.shape)
-# print(test_image.shape)
-
-# conv_layer = nn.Conv2d(in_channels=3,
-#                        out_channels=10,
-#                        kernel_size=3,
-#                        stride=1,
-#                        padding=0)
-# conv_output = conv_layer(test_image)
-# print(conv_output.shape)
-
-# max_pool_layer = nn.MaxPool2d(kernel_size=2)
-# final_img = max_pool_layer(conv_output)
-
-# print(final_img.shape)
-
+# # Find the shape to pass into the classifier
 # rand_image_tensor = torch.randn(size=(1, 1, 28, 28)).to(device)
 # model2(rand_image_tensor)
 
@@ -317,10 +321,14 @@ model2 = FashionMNISTCNN(input_shape=1,
 epochs = 20
 
 #Define the loss function
-loss_fn = nn.CrossEntropyLoss()
+loss_fn = nn.CrossEntropyLoss(label_smoothing=0.1)
 #Define the optimiser
-optimiser = torch.optim.SGD(params=model2.parameters(),
-                            lr=0.08)
+optimiser = torch.optim.Adam(params=model2.parameters(),
+                            lr=0.001)
+
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimiser, mode='min',
+                                                       patience=3, factor=0.5)
+
 
 #Accuracy tracker
 test_acc_fn = Accuracy(task="multiclass", num_classes=len(class_names)).to(device)
@@ -361,8 +369,11 @@ for epoch in range(epochs):
             test_acc_fn.update(y_tpred, y_t)
     test_accuracy = test_acc_fn.compute().item()
     test_acc_fn.reset()
+    scheduler.step(test_loss/len(test_data_loader))
+
 
     print(f"For epoch {epoch}: Train Loss = {(train_loss/len(train_data_loader)):.4f} | Test Loss = {(test_loss/len(test_data_loader)):.4f} | Test Acc = {test_accuracy * 100:.2f}")
+
 
 import matplotlib.pyplot as plt
 
@@ -408,4 +419,40 @@ for i in range(n_to_show):
     plt.axis("off")
 
 plt.tight_layout()
+plt.show()
+
+# Import tqdm for progress bar
+from tqdm.auto import tqdm
+
+# 1. Make predictions with trained model
+y_preds = []
+model2.eval()
+with torch.inference_mode():
+  for X, y in tqdm(test_data_loader, desc="Making predictions"):
+    # Send data and targets to target device
+    X, y = X.to(device), y.to(device)
+    # Do the forward pass
+    y_logit = model2(X)
+    # Turn predictions from logits -> prediction probabilities -> predictions labels
+    y_pred = torch.softmax(y_logit, dim=1).argmax(dim=1) # note: perform softmax on the "logits" dimension, not "batch" dimension (in this case we have a batch size of 32, so can perform on dim=1)
+    # Put predictions on CPU for evaluation
+    y_preds.append(y_pred.cpu())
+# Concatenate list of predictions into a tensor
+y_pred_tensor = torch.cat(y_preds)
+
+import mlxtend
+from torchmetrics import ConfusionMatrix
+from mlxtend.plotting import plot_confusion_matrix
+
+# 2. Setup confusion matrix instance and compare predictions to targets
+confmat = ConfusionMatrix(num_classes=len(class_names), task='multiclass')
+confmat_tensor = confmat(preds=y_pred_tensor,
+                         target=test_data.targets)
+
+# 3. Plot the confusion matrix
+fig, ax = plot_confusion_matrix(
+    conf_mat=confmat_tensor.numpy(), # matplotlib likes working with NumPy 
+    class_names=class_names, # turn the row and column labels into class names
+    figsize=(10, 7)
+);
 plt.show()

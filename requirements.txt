@@ -1,5 +1,6 @@
-numpy
-scikit-learn
-pandas
-seaborn
-matplotlib
+torch>=2.0
+torchvision>=0.15
+torchmetrics>=1.2.0
+tqdm>=4.65
+matplotlib>=3.7
+mlxtend>=0.23
