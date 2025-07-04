@@ -22,3 +22,6 @@ docker-compose.yml
 *.dockerfile
 .dockerignore
 docker-compose.debug.yml
+
+# Ignore the dataset
+data
