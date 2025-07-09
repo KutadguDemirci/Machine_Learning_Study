@@ -318,7 +318,7 @@ model2 = FashionMNISTCNN(input_shape=1,
 
 
 # Define the number of epochs
-epochs = 20
+epochs = 7
 
 #Define the loss function
 loss_fn = nn.CrossEntropyLoss(label_smoothing=0.1)
@@ -419,7 +419,7 @@ for i in range(n_to_show):
     plt.axis("off")
 
 plt.tight_layout()
-plt.show()
+
 
 # Import tqdm for progress bar
 from tqdm.auto import tqdm
