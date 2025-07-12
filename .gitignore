@@ -25,5 +25,4 @@ docker-compose.debug.yml
 
 # Ignore the dataset
 data
-train
-valid
+pipe_data
